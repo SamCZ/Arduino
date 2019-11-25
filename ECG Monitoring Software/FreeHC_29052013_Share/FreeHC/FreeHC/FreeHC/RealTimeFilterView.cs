@@ -42,16 +42,16 @@ namespace FreeHC
 
         public bool butterworth_use_lp = true;
         public int butterworth_freqlp = 170;
-        public int butterworth_powerlp =  20;
+        public int butterworth_powerlp = 20;
 
         public bool butterworth_use_hp = true;
         public int butterworth_freqhp = 3;
-        public int butterworth_powerhp =  57;
+        public int butterworth_powerhp = 57;
 
         public int haar_level = 0;
         public int db6_level = 0;
 
-        public double scale = 0.35;
+        public double scale = -0.35;
 
         public double Beat_Level1 = 0.84;
         public double Beat_Level2 = 0.35;
@@ -69,14 +69,14 @@ namespace FreeHC
         public int _DiagnosticExtraHeight = 200;
         public Diagnostics diag = new Diagnostics();
 
+        private System.Media.SoundPlayer soundPlayer;
+
         private bool _DiagnosticMode = false;
         public bool DiagnosticMode {
-            get
-            {
+            get {
                 return _DiagnosticMode;
             }
-            set
-            {
+            set {
                 if (_DiagnosticMode != value)
                 {
                     _DiagnosticMode = value;
@@ -97,13 +97,13 @@ namespace FreeHC
         public void Pop(UInt16 b)
         {
             // shift Left
-            for (int i = 0; i < Data.Length-1; i++)
+            for (int i = 0; i < Data.Length - 1; i++)
             {
-                Data[i] = Data[i+1];
+                Data[i] = Data[i + 1];
                 DataColor[i] = DataColor[i + 1];
             }
             // add new value
-            Data[Data.Length-1] = -b * scale;
+            Data[Data.Length - 1] = -b * scale;
             DataColor[Data.Length - 1] = Color.White;
         }
 
@@ -118,23 +118,25 @@ namespace FreeHC
             RePaintTimer.Tick += new EventHandler(RePaintTimer_Tick);
             RePaintTimer.Enabled = true;
             editor.rtfv = this;
+
+            soundPlayer = new SoundPlayer(Properties.Resources.EKG_Sound_Effect__Extended_);
+            soundPlayer.Load();
         }
 
         void RePaintTimer_Tick(object sender, EventArgs e)
-        {            Invalidate();
+        {
+            Invalidate();
 
         }
 
         // anti flicker
-        protected override CreateParams CreateParams
-        {
-            get
-            {
+        protected override CreateParams CreateParams {
+            get {
                 CreateParams cp = base.CreateParams;
                 cp.ExStyle |= 0x02000000;  // Turn on WS_EX_COMPOSITED
                 return cp;
             }
-        } 
+        }
 
         public static UInt16 ReverseBytes(UInt16 value)
         {
@@ -149,7 +151,7 @@ namespace FreeHC
             while ((pk.sync0 != 0xa5) && (pk.sync1 != 0x5a))
             {
                 BR.BaseStream.Position = iPosition;
-                if (iPosition > BR.BaseStream.Length-3)
+                if (iPosition > BR.BaseStream.Length - 3)
                 {
                     return pk;
                 }
@@ -200,7 +202,7 @@ namespace FreeHC
             {
                 _NormalHeight = Height;
                 if (EnterDiagnosticMode)
-                         DiagnosticMode = true;
+                    DiagnosticMode = true;
                 return;
             }
             // DoPaint
@@ -220,7 +222,7 @@ namespace FreeHC
             var gb = Graphics.FromImage(aBmp);
             gb.FillRectangle(Brushes.Black, ClientRectangle);
             int cx = (ClientSize.Width / 2) - (icnt / 2);
-            SolidBrush br = new SolidBrush(Color.FromArgb(10,10,10));
+            SolidBrush br = new SolidBrush(Color.FromArgb(10, 10, 10));
             gb.FillRectangle(br, cx, 0, icnt, _NormalHeight);
             br.Dispose();
             gb.DrawRectangle(Pens.White, ClientRectangle);
@@ -234,22 +236,25 @@ namespace FreeHC
             gb.DrawLine(Pens.Red, cx + icnt - beat_Width, beaty1, cx + icnt, beaty1);
             gb.DrawLine(Pens.Red, cx + icnt - beat_Width, beaty2, cx + icnt, beaty2);
 
+            bool play = false;
+
             int ri = 1;
             int beatc1 = 0;
             int beatc2 = 0;
             for (int i = cx; i < cx + icnt; i++)
             {
                 // find next packet
-                if ((ri < Data1.Length) && (!Double.IsNaN(Data1[ri-1])))
+                if ((ri < Data1.Length) && (!Double.IsNaN(Data1[ri - 1])))
                 {
                     int y1 = (int)(Data1[ri - 1] / 3) + 50;
                     int y2 = (int)(Data1[ri] / 3) + 50;
                     Pen p = new Pen(DataColor[ri]);
                     gb.DrawLine(p, i - 1, y1, i, y2);
                     p.Dispose();
-                    if ((y2 < beaty1) && (i>cx+icnt-beat_Width))
+                    if ((y2 < beaty1) && (i > cx + icnt - beat_Width))
                     {
                         beatc1++;
+                        play = true;
                     }
                     if ((y2 > beaty2) && (i > cx + icnt - beat_Width))
                     {
@@ -261,14 +266,14 @@ namespace FreeHC
             SizeF aF = gb.MeasureString("$,", DefaultFont);
             bool aOldBeat = beat;
 
-            beat = (beatc1 > 0) && (beatc1 < Beat_Level1C) && 
-                   (beatc2 > 0) && (beatc2 < Beat_Level2C);
+            beat = (beatc1 > 0) && (beatc1 < Beat_Level1C);
+
             if ((beat) && (!aOldBeat))
             {
                 // mark beat ..
                 for (int i = 0; i < beat_Width; i++)
-                   if (Data[DataColor.Length-i-1] < beaty2)
-                    DataColor[DataColor.Length-i-1] = Color.Lime;
+                    if (Data[DataColor.Length - i - 1] < beaty2)
+                        DataColor[DataColor.Length - i - 1] = Color.Lime;
 
                 displaybeat = 10;
                 fBeater.register_start();
@@ -277,14 +282,20 @@ namespace FreeHC
                 if (fBeater.Arrhythmia)
                 {
                     if (AudioBeat)
-                        SystemSounds.Hand.Play();
+                    {
+                        //soundPlayer.Play();
+                    }
 
                     for (int i = 0; i < beat_Width; i++)
-                            DataColor[DataColor.Length - i - 1] = Color.Red;
+                        DataColor[DataColor.Length - i - 1] = Color.Red;
                 }
 
                 if (AudioBeat)
-                    SystemSounds.Beep.Play();
+                {
+                    soundPlayer.Play();
+                }
+
+
             }
             else
             {
@@ -292,10 +303,10 @@ namespace FreeHC
             }
 
 
-            gb.DrawString(Caption, DefaultFont, Brushes.White, new PointF(2,2));
+            gb.DrawString(Caption, DefaultFont, Brushes.White, new PointF(2, 2));
             gb.DrawString("Frame: " + Frame.ToString(), DefaultFont, Brushes.White, new PointF(2, 4 + aF.Height));
             gb.DrawString("Active: " + Active.ToString(), DefaultFont, Brushes.White, new PointF(2, 6 + (aF.Height * 2)));
-            gb.DrawString("Audio: false", DefaultFont, Brushes.White, new PointF(2, 8+(aF.Height*3)));
+            gb.DrawString("Audio: false", DefaultFont, Brushes.White, new PointF(2, 8 + (aF.Height * 3)));
             gb.DrawString("Beat", DefaultFont, Brushes.LightGray, new PointF(ClientSize.Width - 30, 17));
 
             gb.DrawString("BPM", DefaultFont, Brushes.LightGray, new PointF(ClientSize.Width - 60, 2));
@@ -308,7 +319,7 @@ namespace FreeHC
             }
             else
             {
-                gb.DrawString("Arrhythmia", DefaultFont, Brushes.DarkRed, new PointF(ClientSize.Width - 60, 6 + (aF.Height*2)));
+                gb.DrawString("Arrhythmia", DefaultFont, Brushes.DarkRed, new PointF(ClientSize.Width - 60, 6 + (aF.Height * 2)));
             }
 
             if (displaybeat > 0)
